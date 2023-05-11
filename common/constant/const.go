@@ -68,7 +68,7 @@ const (
 	KEY_BEAT                    = "beat"
 	KEY_DOM                     = "dom"
 	DEFAULT_CONTEXT_PATH        = "/nacos"
-	CLIENT_VERSION              = "Nacos-Go-Client:v2.2.0"
+	CLIENT_VERSION              = "Nacos-Go-Client:v2.2.1"
 	REQUEST_DOMAIN_RETRY_TIME   = 3
 	SERVICE_INFO_SPLITER        = "@@"
 	CONFIG_INFO_SPLITER         = "@@"
@@ -101,4 +101,5 @@ const (
 	CipherPrefix                = "cipher-"
 	IvParameter                 = "fa6fa5207b3286b2"
 	IvLength                    = 16
+	RpcPortOffset               = 1000
 )

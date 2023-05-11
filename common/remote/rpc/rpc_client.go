@@ -105,7 +105,7 @@ type RpcClient struct {
 	lastActiveTimestamp         atomic.Value
 	executeClient               IRpcClient
 	nacosServer                 *nacos_server.NacosServer
-	serverRequestHandlerMapping map[string]ServerRequestHandlerMapping
+	serverRequestHandlerMapping sync.Map
 	mux                         *sync.Mutex
 	clientAbilities             rpc_request.ClientAbilities
 	Tenant                      string
@@ -235,10 +235,16 @@ func (r *RpcClient) Start() {
 			currentConnection.getServerInfo(), currentConnection.getConnectionId())
 		r.currentConnection = currentConnection
 		atomic.StoreInt32((*int32)(&r.rpcClientStatus), (int32)(RUNNING))
-		r.eventChan <- ConnectionEvent{eventType: CONNECTED}
+		r.asyncNotifyConnectionChange(CONNECTED)
 	} else {
 		r.switchServerAsync(ServerInfo{}, false)
 	}
+}
+
+func (r *RpcClient) asyncNotifyConnectionChange(eventType ConnectionStatus) {
+	go func() {
+		r.eventChan <- ConnectionEvent{eventType: eventType}
+	}()
 }
 
 func (r *RpcClient) notifyServerSrvChange() {
@@ -284,10 +290,10 @@ func (r *RpcClient) RegisterServerRequestHandler(request func() rpc_request.IReq
 		return
 	}
 	logger.Debugf("%s register server push request:%s handler:%+v", r.name, requestType, handler.Name())
-	r.serverRequestHandlerMapping[requestType] = ServerRequestHandlerMapping{
+	r.serverRequestHandlerMapping.Store(requestType, ServerRequestHandlerMapping{
 		serverRequest: request,
 		handler:       handler,
-	}
+	})
 }
 
 func (r *RpcClient) RegisterConnectionListener(listener IConnectionEventListener) {
@@ -339,7 +345,7 @@ func (r *RpcClient) reconnect(serverInfo ServerInfo, onRequestFail bool) {
 			}
 			r.currentConnection = connectionNew
 			atomic.StoreInt32((*int32)(&r.rpcClientStatus), (int32)(RUNNING))
-			r.eventChan <- ConnectionEvent{eventType: CONNECTED}
+			r.asyncNotifyConnectionChange(CONNECTED)
 			return
 		}
 		if r.isShutdown() {
@@ -365,7 +371,7 @@ func (r *RpcClient) reconnect(serverInfo ServerInfo, onRequestFail bool) {
 func (r *RpcClient) closeConnection() {
 	if r.currentConnection != nil {
 		r.currentConnection.close()
-		r.eventChan <- ConnectionEvent{eventType: DISCONNECTED}
+		r.asyncNotifyConnectionChange(DISCONNECTED)
 	}
 }
 
